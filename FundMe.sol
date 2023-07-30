@@ -10,11 +10,29 @@ contract FundMe {
     using SafeMathChainlink for uint256;
 
     mapping(address => uint256) public addressToAmountFunded;
+    // array of addresses who send ETH to this contract
+    address[] public funders;
+    //address of the owner (who deployed the contract)
+    address public owner;
+
+    constructor() public {
+        owner = msg.sender;
+    }
+
+    modifier onlyOwner() {
+        // check if the message sender is the owner of the contract
+        require(msg.sender == owner);
+        _;
+    }
 
     function fund() public payable {
         uint256 minimumUSD = 50 * 10 ** 18;  // $50
-        require(getConversionRate(msg.value) >= minimumUSD, "More ETH is required!");
+        require(
+            getConversionRate(msg.value) >= minimumUSD,
+            "More ETH is required!"
+        );
         addressToAmountFunded[msg.sender] += msg.value;
+        funders.push(msg.sender);
     }
 
     function getVersion() public view returns (uint256) {
@@ -33,6 +51,21 @@ contract FundMe {
         uint256 ethPrice = getPrice();
         uint256 ethAmountInUsd = (ethPrice * ethAmount) / 1000000000000000000;
         return ethAmountInUsd;
+    }
+
+    function withdraw() payable public onlyOwner {
+        // send entire balance to the owner of the contract, when owner call that functionality
+        msg.sender.transfer(address(this).balance);
+
+        for (
+            uint256 funderIndex = 0;
+            funderIndex < funders.length;
+            funderIndex++
+        ) {
+            address funder = funders[funderIndex];
+            addressToAmountFunded[funder] = 0;
+        }
+        funders = new address[](0);
     }
 
 }
